@@ -199,135 +199,143 @@ endFunction
 
 Function ProcessCheckMeter(actor playerActorRef)
 
-	if (DTWW_Enabled.GetValue() > 0.0 && playerActorRef != None)
-		float updateSecs = 90.0			; to update
-		float playerLastKnownShiftTime = DTWW_PlayerLastKnownShiftBackTime.GetValue()
-		bool isBeast = false
-		bool retryRemove = false
+	if (playerActorRef != None)
+		if (DTWW_Enabled.GetValue() > 0.0)
 		
-		if (PlayerIsWerewolfBeast(playerActorRef))
-		
-			isBeast = true
-		
-			float playerShiftTime = PlayerWerewolfShiftBackTime.GetValue()
-			float playerBecameWerwolfTime = DTWW_PlayerShiftedToWerwolfTime.GetValue()
-			float currenTime = Utility.GetCurrentGameTime()
-			float lunarShiftLimit = currenTime + 100.0   ;mtse sets 999 + days passed 
-			bool showTimeMeter = playerActorRef.HasSpell(DTWW_WerwolfMeterSpell)
+			float updateSecs = 90.0			; to update
+			float playerLastKnownShiftTime = DTWW_PlayerLastKnownShiftBackTime.GetValue()
+			bool isBeast = false
+			bool retryRemove = false
 			
-			if (playerShiftTime > lunarShiftLimit && playerLastKnownShiftTime > 0.0)
+			if (PlayerIsWerewolfBeast(playerActorRef))
 			
-				; did we enter MTSE all-night while in beast form?
-				float shiftHour = GetHourFromGameTime(playerLastKnownShiftTime)
+				isBeast = true
+			
+				float playerShiftTime = PlayerWerewolfShiftBackTime.GetValue()
+				float playerBecameWerwolfTime = DTWW_PlayerShiftedToWerwolfTime.GetValue()
+				float currenTime = Utility.GetCurrentGameTime()
+				float lunarShiftLimit = currenTime + 100.0   ;mtse sets 999 + days passed 
+				bool showTimeMeter = playerActorRef.HasSpell(DTWW_WerwolfMeterSpell)
+				
+				if (playerShiftTime > lunarShiftLimit && playerLastKnownShiftTime > 0.0)
+				
+					; did we enter MTSE all-night while in beast form?
+					float shiftHour = GetHourFromGameTime(playerLastKnownShiftTime)
 
-				if (playerLastKnownShiftTime < (currenTime + 0.1667) && (shiftHour < 5.0 || shiftHour > 6.0))
-					; all-night activation! Update end-transform time
-					playerShiftTime = GetLunarTransformEndTime(currenTime)
-				else
-					playerShiftTime = playerLastKnownShiftTime
-				endIf
-			endIf 
-			
-			if (playerShiftTime != playerLastKnownShiftTime)
-				if playerLastKnownShiftTime == 0
-					if playerShiftTime > lunarShiftLimit
-						; lunar transformation adjustment
+					if (playerLastKnownShiftTime < (currenTime + 0.1667) && (shiftHour < 5.0 || shiftHour > 6.0))
+						; all-night activation! Update end-transform time
 						playerShiftTime = GetLunarTransformEndTime(currenTime)
-						;Debug.Notification("DTWW - set Lunar transform time: " + playerShiftTime)
+					else
+						playerShiftTime = playerLastKnownShiftTime
 					endIf
-					
-					playerLastKnownShiftTime = playerShiftTime
-					playerBecameWerwolfTime = currenTime
-					float magickaCurrent = playerActorRef.GetActorValue("Magicka")
+				endIf 
+				
+				if (playerShiftTime != playerLastKnownShiftTime)
+					if playerLastKnownShiftTime == 0
+						if playerShiftTime > lunarShiftLimit
+							; lunar transformation adjustment
+							playerShiftTime = GetLunarTransformEndTime(currenTime)
+							;Debug.Notification("DTWW - set Lunar transform time: " + playerShiftTime)
+						endIf
+						
+						playerLastKnownShiftTime = playerShiftTime
+						playerBecameWerwolfTime = currenTime
+						float magickaCurrent = playerActorRef.GetActorValue("Magicka")
 
-					DTWW_PlayerOrigMagicka.SetValue(magickaCurrent)
-					DTWW_PlayerShiftedToWerwolfTime.SetValue(playerBecameWerwolfTime)
-					
-					if playerActorRef.HasPerk(Atronoch)
-						DTWW_PlayerHasAtronochPerk.SetValue(1.0)
-					else
-						DTWW_PlayerHasAtronochPerk.SetValue(0.0)
+						DTWW_PlayerOrigMagicka.SetValue(magickaCurrent)
+						DTWW_PlayerShiftedToWerwolfTime.SetValue(playerBecameWerwolfTime)
+						
+						if playerActorRef.HasPerk(Atronoch)
+							DTWW_PlayerHasAtronochPerk.SetValue(1.0)
+						else
+							DTWW_PlayerHasAtronochPerk.SetValue(0.0)
+						endIf
+						
+						if playerActorRef.HasSpell(DoomAtronochAbility)
+							DTWW_PlayerHasAtronochStone.SetValue(1.0)
+						else
+							DTWW_PlayerHasAtronochStone.SetValue(0.0)
+						endIf
+						
+						if (playerActorRef.HasSpell(DTWW_WerwolfMeterSpell) || playerActorRef.HasMagicEffect(DTWW_DamageMagickaRate))
+							showTimeMeter = true 
+						else
+							showTimeMeter = playerActorRef.AddSpell(DTWW_WerwolfMeterSpell, false)
+						endIf 
+						
 					endIf
+				
+					DTWW_PlayerLastKnownShiftBackTime.SetValue(playerShiftTime)
 					
-					if playerActorRef.HasSpell(DoomAtronochAbility)
-						DTWW_PlayerHasAtronochStone.SetValue(1.0)
-					else
-						DTWW_PlayerHasAtronochStone.SetValue(0.0)
-					endIf
-					
-					if (playerActorRef.HasSpell(DTWW_WerwolfMeterSpell) || playerActorRef.HasMagicEffect(DTWW_DamageMagickaRate))
-						showTimeMeter = true 
-					else
-						showTimeMeter = playerActorRef.AddSpell(DTWW_WerwolfMeterSpell, false)
-					endIf 
-					
+				elseIf (showTimeMeter == false)
+					; try adding again
+					showTimeMeter = playerActorRef.AddSpell(DTWW_WerwolfMeterSpell, false)
 				endIf
-			
-				DTWW_PlayerLastKnownShiftBackTime.SetValue(playerShiftTime)
 				
-			elseIf (showTimeMeter == false)
-				; try adding again
-				showTimeMeter = playerActorRef.AddSpell(DTWW_WerwolfMeterSpell, false)
-			endIf
-			
-			; calculate time remain in hours for meter and update
-			float totalTime = (playerShiftTime - playerBecameWerwolfTime) * 24.0
-			float currentHoursRemaining = (playerShiftTime - currenTime) * 24.0
+				; calculate time remain in hours for meter and update
+				float totalTime = (playerShiftTime - playerBecameWerwolfTime) * 24.0
+				float currentHoursRemaining = (playerShiftTime - currenTime) * 24.0
 
-			if currentHoursRemaining < 0.0
-				currentHoursRemaining = 0.0
-			endIf
-			
-			if totalTime <= 0.0
-				totalTime = 0.01
-			endIf
-			
-			updateSecs = 3.0					; default beast-form update				
-			if currentHoursRemaining > 2.0
-				updateSecs = 5.0
-			elseIf currentHoursRemaining < 0.0125
-				updateSecs = 1.67				; time almost out
-			endIf
-			
-			if showTimeMeter
-				MeterDisplayed = true
-				float fractionTimeRemaining = currentHoursRemaining / totalTime
-				float magickaMax = GetMaxMagickaActorValue(playerActorRef)
-				float timerValue = fractionTimeRemaining * magickaMax
+				if currentHoursRemaining < 0.0
+					currentHoursRemaining = 0.0
+				endIf
 				
-				UpdateMagickaMeterWithValue(timerValue, playerActorRef)
+				if totalTime <= 0.0
+					totalTime = 0.01
+				endIf
+				
+				updateSecs = 3.0					; default beast-form update				
+				if currentHoursRemaining > 2.0
+					updateSecs = 5.0
+				elseIf currentHoursRemaining < 0.0125
+					updateSecs = 1.67				; time almost out
+				endIf
+				
+				if showTimeMeter
+					MeterDisplayed = true
+					float fractionTimeRemaining = currentHoursRemaining / totalTime
+					float magickaMax = GetMaxMagickaActorValue(playerActorRef)
+					float timerValue = fractionTimeRemaining * magickaMax
+					
+					UpdateMagickaMeterWithValue(timerValue, playerActorRef)
+				else
+					MeterDisplayed = false
+					float minsRemain = 60 * currentHoursRemaining
+					;Debug.Notification("DTWW - minutes remaining: " + minsRemain)
+					DTWW_MinRemainMessage.Show(minsRemain)
+					updateSecs += 1.0
+				endIf 
+			elseIf (playerLastKnownShiftTime != 0.0)
+				; restore
+
+				if (RestoreMagickaAndGlobals(playerActorRef) == false)
+					;Debug.Notification("DTWW - failed restore...try again")
+					retryRemove = true
+					updateSecs = 1.5
+				endIf
+			elseIf playerActorRef.HasSpell(DTWW_WerwolfMeterSpell)
+				; if failed to remove before, try again
+				;Debug.Notification("DTWW - Has meterSpell - removing")
+				if (RestoreMagickaAndGlobals(playerActorRef) == false)
+					retryRemove = true
+					updateSecs = 1.5
+				endIf
 			else
 				MeterDisplayed = false
-				float minsRemain = 60 * currentHoursRemaining
-				;Debug.Notification("DTWW - minutes remaining: " + minsRemain)
-				DTWW_MinRemainMessage.Show(minsRemain)
-				updateSecs += 1.0
-			endIf 
-		elseIf (playerLastKnownShiftTime != 0.0)
-			; restore
-
-			if (RestoreMagickaAndGlobals(playerActorRef) == false)
-				;Debug.Notification("DTWW - failed restore...try again")
-				retryRemove = true
-				updateSecs = 1.5
 			endIf
-		elseIf playerActorRef.HasSpell(DTWW_WerwolfMeterSpell)
-			; if failed to remove before, try again
-			;Debug.Notification("DTWW - Has meterSpell - removing")
-			if (RestoreMagickaAndGlobals(playerActorRef) == false)
-				retryRemove = true
-				updateSecs = 1.5
+			
+			if (isBeast || retryRemove)
+				if (updateSecs > 0.333)
+					RegisterForSingleUpdate(updateSecs)
+				else
+					RegisterForSingleUpdate(2.0)	
+				endIf
 			endIf
-		else
-			MeterDisplayed = false
-		endIf
-		
-		if (isBeast || retryRemove)
-			if (updateSecs > 0.333)
-				RegisterForSingleUpdate(updateSecs)
-			else
-				RegisterForSingleUpdate(2.0)	
-			endIf
+			
+		elseIf (MeterDisplayed || playerActorRef.HasSpell(DTWW_WerwolfMeterSpell))
+			; disabled, but still have spell - remove
+			
+			RestoreMagickaAndGlobals(playerActorRef)
 		endIf
 	endIf
 endFunction

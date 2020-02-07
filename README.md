@@ -89,7 +89,8 @@ remove equipment on transform end may briefly show equipped items
 * adds optional remove-equipment at end of transformation back
 * Werewolf Meter Toggle spell now switches 3 modes: Disabled, Enabled keep equipment, Enabled remove equipment
 * performance improvements with more immediate display (about 5 seconds after transformation)
-* on werewolf cure will automatically disable meter, and on obtain lyconthropy will automatically enabled meter
+* changed handling atronach perk/ability spell absorption from polling to on-hit reaction with frequency limit
+* on obtain lyconthropy will automatically enabled meter -- may override with console: set DTWW_Enabled to -1
 * updated text for changes to toggle spell, toggle notifications
 
 

@@ -73,7 +73,7 @@ EndEvent
 ; when becomes werewolf let's enable or disable meter
 Event OnLycanthropyStateChanged(bool abIsWerewolf)
 	if (abIsWerewolf)
-		if ((DTWerewolfWatchP as DTWerewolfWatch).DTWW_Enabled.GetValueInt() <= 0)
+		if ((DTWerewolfWatchP as DTWerewolfWatch).DTWW_Enabled.GetValueInt() == 0)
 			(DTWerewolfWatchP as DTWerewolfWatch).DTWW_Enabled.SetValueInt(1)
 			(DTWerewolfWatchP as DTWerewolfWatch).Register()
 			
