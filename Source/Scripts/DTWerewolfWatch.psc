@@ -4,7 +4,7 @@ scriptName DTWerewolfWatch extends Quest
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Werewolf Time Meter - WerewolfWatch main controller
 ; Author: DracoTorre
-; Version: 2.0
+; Version: 2.1
 ; Source: http://www.nexusmods.com/skyrimspecialedition/mods/8389/?
 ; Homepage: http://www.dracotorre.com/mods/werewolfmeter/
 ;
@@ -137,6 +137,7 @@ EndFunction
 
 Function InitOnGameLoad()
 	LastOnHitTime = 0.0
+	
 endFunction
 ;
 ;bool Function PlayerIsVampireLord(Actor playerActorRef, bool alwaysCheck = true)
@@ -367,7 +368,7 @@ bool Function RestoreMagickaAndGlobals(Actor playerActorRef)
 		DTWW_PlayerLastKnownShiftBackTime.SetValue(0 as Float)
 		float origMagicka = DTWW_PlayerOrigMagicka.GetValue()
 
-		if origMagicka <= 5
+		if origMagicka <= 5.0
 			origMagicka = GetMaxMagickaActorValue(playerActorRef)
 		endIf 
 		
@@ -383,6 +384,8 @@ bool Function RestoreMagickaAndGlobals(Actor playerActorRef)
 		DTWW_PlayerOrigMagicka.SetValue(0)
 		
 	endIf
+	
+	StartAltMagTotalVal = -2.0
 	
 	return spellRemoved
 EndFunction
@@ -440,10 +443,31 @@ float Function GetLunarTransformEndTime(float currentTime)
 	return dayNum as Float + endHour
 endFunction
 
+float StartAltMagTotalVal = -1.0			; for strange issue
+
 float Function GetMaxMagickaActorValue(Actor starget)
 	float currentVal = starget.GetActorValue("Magicka")
 	if currentVal <= 0.0
+		; base not including buffs
 		return starget.GetBaseActorValue("Magicka")
 	endIf
-  return ( currentVal / starget.GetActorValuePercentage("Magicka"))
+	
+	float valPerc = starget.GetActorValuePercentage("Magicka")
+
+	if (valPerc > 2.0)
+		; some kind of error with Growl?
+		;  - "Growl" mod reduces magicka 
+		;  - not needed for my Nord, 
+		;  - but Bosmer and Altmer show, valPerc == reduced maximum, or currentVal if starting with max magicka
+		if (StartAltMagTotalVal < 0.0)
+			; just set to current val as the starting point
+			;Debug.Notification("%Val " + valPerc + ", curVal = " + currentVal)
+			StartAltMagTotalVal = currentVal
+		endIf
+		
+		return StartAltMagTotalVal
+	endIf
+	
+	; max including buffs
+	return Math.Ceiling(currentVal / valPerc)
 EndFunction
