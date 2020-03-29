@@ -454,11 +454,8 @@ float Function GetMaxMagickaActorValue(Actor starget)
 	
 	float valPerc = starget.GetActorValuePercentage("Magicka")
 
-	if (valPerc > 2.0)
-		; some kind of error with Growl?
-		;  - "Growl" mod reduces magicka 
-		;  - not needed for my Nord, 
-		;  - but Bosmer and Altmer show, valPerc == reduced maximum, or currentVal if starting with max magicka
+	if (valPerc >= 2.0 && valPerc == currentVal)
+		; error when scale magicka too low - use initial currentVal as start
 		if (StartAltMagTotalVal < 0.0)
 			; just set to current val as the starting point
 			;Debug.Notification("%Val " + valPerc + ", curVal = " + currentVal)
