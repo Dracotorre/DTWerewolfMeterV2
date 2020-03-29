@@ -70,7 +70,7 @@ Event OnHit(ObjectReference akAggressor, Form akSource, Projectile akProjectile,
 EndEvent
 
 ; this event added in SE v1.5.3
-; when becomes werewolf let's enable or disable meter
+; when becomes werewolf let's enable meter
 Event OnLycanthropyStateChanged(bool abIsWerewolf)
 	if (abIsWerewolf)
 		if ((DTWerewolfWatchP as DTWerewolfWatch).DTWW_Enabled.GetValueInt() == 0)
@@ -95,18 +95,25 @@ Event OnRaceSwitchComplete()
 	if ((DTWerewolfWatchP as DTWerewolfWatch).PlayerIsWerewolfBeast(playerRef))
 		; mark as creature to check later to avoid issue with other race switches
 		IsCreature = true
-	
+		
+		(DTWerewolfWatchP as DTWerewolfWatch).DidChangeToWerewolf(playerRef)
 	; clothing visible during transform effect 
 	;elseIf ((DTWerewolfWatchP as DTWerewolfWatch).PlayerIsVampireLord(playerRef))
 	;	IsCreature = true
 		
 	else
 		; check if was a creature and setting to unequip
-		if (IsCreature && (DTWerewolfWatchP as DTWerewolfWatch).DTWW_Enabled.GetValueInt() >= 2)
-			playerRef.UnequipAll()
+		if (IsCreature)
+			(DTWerewolfWatchP as DTWerewolfWatch).DidChangeFromWerewolf(playerRef)
+			
+			if ((DTWerewolfWatchP as DTWerewolfWatch).DTWW_Enabled.GetValueInt() >= 2)
+				playerRef.UnequipAll()
+			endIf
 		endIf
+		
 		IsCreature = false
 	endIf
+	
 	; wait a bit before updating meter
 	Utility.Wait(5.25)
 	(DTWerewolfWatchP as DTWerewolfWatch).ProcessCheckMeter(playerRef)

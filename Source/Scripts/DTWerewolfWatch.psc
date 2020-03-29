@@ -46,6 +46,8 @@ GlobalVariable Property DLC1WerewolfMaxPerks  Auto
 
 bool property MeterDisplayed auto hidden
 float property LastOnHitTime auto hidden				; to avoid checking/updating too frequently
+bool property GrowlModInstalled auto hidden
+float property MyBaseMana auto hidden
  
 Event OnLoad()
 	self.OnInit()
@@ -119,6 +121,21 @@ endFunction
 ;  functions 
 ; **************
 
+Function DidChangeToWerewolf(Actor playerRef)
+	if (GrowlModInstalled && MyBaseMana <= 0.0 && DTWW_Enabled.GetValueInt() >= 1)
+		MyBaseMana = playerRef.GetBaseActorValue("Magicka")
+
+		playerRef.ModActorValue("Magicka", MyBaseMana - 1.0)
+	endIf
+endFunction
+
+Function DidChangeFromWerewolf(Actor playerRef)
+	if (GrowlModInstalled && MyBaseMana > 0.0)
+		playerRef.ModActorValue("Magicka", -(MyBaseMana - 1.0))
+		MyBaseMana = 0.0
+	endIf
+endFunction
+
 Function DisableMeter(actor playerActorRef)
 	bool restored = true
 	
@@ -138,7 +155,23 @@ EndFunction
 Function InitOnGameLoad()
 	LastOnHitTime = 0.0
 	
+	Form growlForm = IsPluginActive(0x04014C1A, "Growl - Werebeasts of Skyrim.esp")
+	if (growlForm != None)
+		GrowlModInstalled = true
+	else
+		GrowlModInstalled = false
+	endIf
 endFunction
+
+Form Function IsPluginActive(int formID, string pluginName)
+	; from CreationKit.com: "Note the top most byte in the given ID is unused so 0000ABCD works as well as 0400ABCD"	
+	Form formFound = Game.GetFormFromFile(formID, pluginName)
+	if (formFound)
+		Debug.Trace("[DTWW] found plugin: " + pluginName)
+		return formFound 
+	endIf
+	return None
+EndFunction
 ;
 ;bool Function PlayerIsVampireLord(Actor playerActorRef, bool alwaysCheck = true)
 ;	bool okayToCheck = false
@@ -454,7 +487,7 @@ float Function GetMaxMagickaActorValue(Actor starget)
 	
 	float valPerc = starget.GetActorValuePercentage("Magicka")
 
-	if (valPerc >= 2.0 && valPerc == currentVal)
+	if (valPerc >= 2.0 && valPerc == currentVal && !GrowlModInstalled)
 		; error when scale magicka too low - use initial currentVal as start
 		if (StartAltMagTotalVal < 0.0)
 			; just set to current val as the starting point
