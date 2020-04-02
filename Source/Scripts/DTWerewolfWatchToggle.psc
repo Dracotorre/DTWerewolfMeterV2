@@ -3,7 +3,7 @@ scriptName DTWerewolfWatchToggle extends ActiveMagicEffect
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Werewolf Time Meter toggle
 ; Author: DracoTorre
-; Version: 2.0
+; Version: 2.22
 ; Source: http://www.nexusmods.com/skyrimspecialedition/mods/8389/?
 ; Homepage: http://www.dracotorre.com/mods/werewolfmeter/
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -23,9 +23,14 @@ EndEvent
 Function ToggleWWMeter()
 	int toggleVal = DTWW_Enabled.GetValueInt()
 	if (toggleVal >= 2)
-		DTWW_Enabled.SetValueInt(0)
+		if (toggleVal == 2 && (DTWerewolfWatch_quest as DTWerewolfWatch).GrowlModInstalled)
+			DTWW_Enabled.SetValueInt(3)
+			(DTWerewolfWatch_quest as DTWerewolfWatch).Register()
+		else
+			DTWW_Enabled.SetValueInt(0)
 
-		(DTWerewolfWatch_quest as DTWerewolfWatch).UnRegister()
+			(DTWerewolfWatch_quest as DTWerewolfWatch).UnRegister()
+		endIf
 	elseIf (toggleVal == 1)
 		DTWW_Enabled.SetValueInt(2)
 		(DTWerewolfWatch_quest as DTWerewolfWatch).Register()

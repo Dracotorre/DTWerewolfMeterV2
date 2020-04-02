@@ -4,7 +4,7 @@ scriptName DTWerewolfWatch extends Quest
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Werewolf Time Meter - WerewolfWatch main controller
 ; Author: DracoTorre
-; Version: 2.1
+; Version: 2.25
 ; Source: http://www.nexusmods.com/skyrimspecialedition/mods/8389/?
 ; Homepage: http://www.dracotorre.com/mods/werewolfmeter/
 ;
@@ -46,8 +46,8 @@ GlobalVariable Property DLC1WerewolfMaxPerks  Auto
 
 bool property MeterDisplayed auto hidden
 float property LastOnHitTime auto hidden				; to avoid checking/updating too frequently
-bool property GrowlModInstalled auto hidden
-float property MyBaseMana auto hidden
+bool property GrowlModInstalled auto hidden				; if true, handle magicka scaling to compensate
+float property MyBaseMana auto hidden					; for scaling, record on scale to reverse scale later
  
 Event OnLoad()
 	self.OnInit()
@@ -61,24 +61,24 @@ endEvent
 Event OnUpdate()
 
 	actor playerActorRef = game.GetPlayer()
-	bool isEnabled = true
+	bool tisEnabled = true
 	bool lastEnabled = false
 	if (DTWW_Enabled.GetValueInt() >= 1)
 		lastEnabled = true
 	endIf
 	
 	if (DTWW_Initialized.GetValueInt() > 0 || playerActorRef.HasSpell(DTWW_WolfMeterToggleSpell))
-		isEnabled = lastEnabled
+		tisEnabled = lastEnabled
 	elseIf !Game.IsFightingControlsEnabled()
 		; player busy - wait to init later
 		UnregisterForUpdate()
 		RegisterForSingleUpdate(33.0)
 		return
 	else
-		isEnabled = InitializeMeterWatch(playerActorRef)
+		tisEnabled = InitializeMeterWatch(playerActorRef)
 	endIf
 	
-	if (!isEnabled)
+	if (!tisEnabled)
 		UnregisterForUpdate()
 		DisableMeter(playerActorRef)
 		return
@@ -101,7 +101,18 @@ Function Register()
 			; player toggled, so consider initialized
 			DTWW_Initialized.SetValueInt(2)
 		endIf
-		DTWW_EnableMeterUneqMessage.Show()
+		; v2.25 - growl may be installed with scaling on or off
+		if (toggleVal == 2)
+			if (GrowlModInstalled)
+				; scaling on
+				DTWW_EnableMeterUneqMessage.Show(1)
+			else
+				DTWW_EnableMeterUneqMessage.Show(0)
+			endIf
+		else
+			; 3+ no scaling
+			DTWW_EnableMeterUneqMessage.Show(2)
+		endIf
 	elseIf (toggleVal > 0)
 		DTWW_EnableMeterMessage.Show()
 	endIf
@@ -121,19 +132,38 @@ endFunction
 ;  functions 
 ; **************
 
-Function DidChangeToWerewolf(Actor playerRef)
-	if (GrowlModInstalled && MyBaseMana <= 0.0 && DTWW_Enabled.GetValueInt() >= 1)
-		MyBaseMana = playerRef.GetBaseActorValue("Magicka")
+; call well after "Growl" scales magicka such as on delayed meter display init
+Function CheckInitMagickaScale(Actor playerRef)
 
-		playerRef.ModActorValue("Magicka", MyBaseMana - 1.0)
+	int enableVal = DTWW_Enabled.GetValueInt()
+	
+	; only for settingEnabled 1 and 2 -- 3+ considered no scale
+	if (GrowlModInstalled && MyBaseMana <= 0.0 && enableVal >= 1 && enableVal < 3)
+		
+		; is magicka scaled too low?
+		float maxMana = (playerRef.GetActorValue("Magicka") / playerRef.GetActorValuePercentage("Magicka"))
+		if (maxMana < 100.0)
+			MyBaseMana = playerRef.GetBaseActorValue("Magicka")
+		
+			playerRef.ModActorValue("Magicka", MyBaseMana - 1.0)
+		endIf
 	endIf
 endFunction
 
-Function DidChangeFromWerewolf(Actor playerRef)
-	if (GrowlModInstalled && MyBaseMana > 0.0)
+Function CheckRestoreMagickaScale(Actor playerRef)
+	if (MyBaseMana > 0.0)
+		; restore
 		playerRef.ModActorValue("Magicka", -(MyBaseMana - 1.0))
 		MyBaseMana = 0.0
 	endIf
+endFunction
+
+Function DidChangeToWerewolf(Actor playerRef)
+	; v2.25 - do nothing - will check for "Growl" and init MyBaseMana after delay on first meter display
+endFunction
+
+Function DidChangeFromWerewolf(Actor playerRef)
+	CheckRestoreMagickaScale(playerRef)
 endFunction
 
 Function DisableMeter(actor playerActorRef)
@@ -154,6 +184,7 @@ EndFunction
 
 Function InitOnGameLoad()
 	LastOnHitTime = 0.0
+	; do not reset StartAltMagTotalVal here--may load into werewolf
 	
 	Form growlForm = IsPluginActive(0x04014C1A, "Growl - Werebeasts of Skyrim.esp")
 	if (growlForm != None)
@@ -265,17 +296,20 @@ Function ProcessCheckMeter(actor playerActorRef)
 				endIf 
 				
 				if (playerShiftTime != playerLastKnownShiftTime)
-					if playerLastKnownShiftTime == 0
-						if playerShiftTime > lunarShiftLimit
+					if (playerLastKnownShiftTime == 0)
+						; initial shift - setup for meter
+						if (playerShiftTime > lunarShiftLimit)
 							; lunar transformation adjustment
 							playerShiftTime = GetLunarTransformEndTime(currenTime)
 							;Debug.Notification("DTWW - set Lunar transform time: " + playerShiftTime)
 						endIf
 						
+						CheckInitMagickaScale(playerActorRef)		; v2.25 - added--check before storing
+						
 						playerLastKnownShiftTime = playerShiftTime
 						playerBecameWerwolfTime = currenTime
 						float magickaCurrent = playerActorRef.GetActorValue("Magicka")
-
+						
 						DTWW_PlayerOrigMagicka.SetValue(magickaCurrent)
 						DTWW_PlayerShiftedToWerwolfTime.SetValue(playerBecameWerwolfTime)
 						
@@ -335,7 +369,7 @@ Function ProcessCheckMeter(actor playerActorRef)
 				else
 					MeterDisplayed = false
 					float minsRemain = 60 * currentHoursRemaining
-					;Debug.Notification("DTWW - minutes remaining: " + minsRemain)
+
 					DTWW_MinRemainMessage.Show(minsRemain)
 					updateSecs += 1.0
 				endIf 
@@ -375,6 +409,9 @@ Function ProcessCheckMeter(actor playerActorRef)
 endFunction
 
 bool function InitializeMeterWatch(Actor playActor)
+
+	StartAltMagTotalVal = -3.0
+	
 	if (playActor != None)
 		if (!playActor.HasSpell(DTWW_WolfMeterToggleSpell))
 			playActor.AddSpell(DTWW_WolfMeterToggleSpell)
@@ -398,7 +435,7 @@ bool Function RestoreMagickaAndGlobals(Actor playerActorRef)
 	
 	if spellRemoved
 	
-		DTWW_PlayerLastKnownShiftBackTime.SetValue(0 as Float)
+		DTWW_PlayerLastKnownShiftBackTime.SetValue(0.0)
 		float origMagicka = DTWW_PlayerOrigMagicka.GetValue()
 
 		if origMagicka <= 5.0
@@ -418,7 +455,7 @@ bool Function RestoreMagickaAndGlobals(Actor playerActorRef)
 		
 	endIf
 	
-	StartAltMagTotalVal = -2.0
+	StartAltMagTotalVal = -2.0								; reset
 	
 	return spellRemoved
 EndFunction
@@ -476,9 +513,10 @@ float Function GetLunarTransformEndTime(float currentTime)
 	return dayNum as Float + endHour
 endFunction
 
-float StartAltMagTotalVal = -1.0			; for strange issue
+float StartAltMagTotalVal = -1.0			; save the first calc here, reset when done
 
 float Function GetMaxMagickaActorValue(Actor starget)
+
 	float currentVal = starget.GetActorValue("Magicka")
 	if currentVal <= 0.0
 		; base not including buffs
@@ -486,18 +524,31 @@ float Function GetMaxMagickaActorValue(Actor starget)
 	endIf
 	
 	float valPerc = starget.GetActorValuePercentage("Magicka")
-
-	if (valPerc >= 2.0 && valPerc == currentVal && !GrowlModInstalled)
+	
+	; v2.25 - check if growl and scaling on
+	bool growlOn = false
+	if (GrowlModInstalled && DTWW_Enabled.GetValueInt() <= 2 && MyBaseMana > 0.0)
+		growlOn = true
+	endIf
+	
+	if (valPerc >= 2.0 && valPerc == currentVal && !growlOn)
 		; error when scale magicka too low - use initial currentVal as start
 		if (StartAltMagTotalVal < 0.0)
 			; just set to current val as the starting point
-			;Debug.Notification("%Val " + valPerc + ", curVal = " + currentVal)
+			
 			StartAltMagTotalVal = currentVal
 		endIf
 		
 		return StartAltMagTotalVal
 	endIf
+
+	; max including buffs, but not modifications
+	float maxVal = Math.Ceiling(currentVal / valPerc)
 	
-	; max including buffs
-	return Math.Ceiling(currentVal / valPerc)
+	if (valPerc > 1.0 && valPerc <= 1.1)
+		; v2.25 - start with higher value. Fuller bar to start, but will drop lower on next update
+		maxVal = Math.Floor(maxVal * valPerc)
+	endIf
+	
+	return maxVal
 EndFunction
