@@ -41,6 +41,7 @@ Message property DTWW_MinRemainMessage auto
 MagicEffect property DTWW_DamageMagickaRate auto
 
 GlobalVariable Property DLC1WerewolfMaxPerks  Auto
+GlobalVariable Property DTWW_InitialPrefVal auto		; v2.26
 ;Race property DLC1VampireBeastRace auto
 ;Keyword property ActorTypeUndead auto
 
@@ -76,6 +77,13 @@ Event OnUpdate()
 		return
 	else
 		tisEnabled = InitializeMeterWatch(playerActorRef)
+		;
+		; v2.26 - announce initial preference
+		if (tisEnabled)
+			Utility.Wait(1.2)
+			ShowPreferenceMessage()
+		endIf
+		
 	endIf
 	
 	if (!tisEnabled)
@@ -94,28 +102,16 @@ endEvent
 
 Function Register()
 	
-	UnregisterForUpdate() 
+	UnregisterForUpdate()
 	int toggleVal = DTWW_Enabled.GetValueInt()
 	if (toggleVal >= 2)
 		if (DTWW_Initialized.GetValueInt() < 2)
 			; player toggled, so consider initialized
 			DTWW_Initialized.SetValueInt(2)
 		endIf
-		; v2.25 - growl may be installed with scaling on or off
-		if (toggleVal == 2)
-			if (GrowlModInstalled)
-				; scaling on
-				DTWW_EnableMeterUneqMessage.Show(1)
-			else
-				DTWW_EnableMeterUneqMessage.Show(0)
-			endIf
-		else
-			; 3+ no scaling
-			DTWW_EnableMeterUneqMessage.Show(2)
-		endIf
-	elseIf (toggleVal > 0)
-		DTWW_EnableMeterMessage.Show()
 	endIf
+	
+	ShowPreferenceMessage()				; v2.26 moved to function
 	 
 	RegisterForSingleUpdate(3.0)
 endFunction
@@ -410,6 +406,7 @@ endFunction
 
 bool function InitializeMeterWatch(Actor playActor)
 
+	bool result = true
 	StartAltMagTotalVal = -3.0
 	
 	if (playActor != None)
@@ -418,10 +415,22 @@ bool function InitializeMeterWatch(Actor playActor)
 		endIf
 		DTWW_Initialized.SetValueInt(1)
 		
-		DTWW_Enabled.SetValueInt(1)
+		; v2.26 - optional initialized value
+		int initVal = -1
+		if (DTWW_InitialPrefVal != None)
+			initVal = DTWW_InitialPrefVal.GetValueInt()
+		endIf
+		if (initVal >= 0)
+			DTWW_Enabled.SetValueInt(initVal)
+			if (initVal == 0)
+				result = false				; initialized to disabled
+			endIf
+		else
+			DTWW_Enabled.SetValueInt(1)
+		endIf
 	endIf
 	
-	return true
+	return result
 endFunction
 
 bool Function RestoreMagickaAndGlobals(Actor playerActorRef)
@@ -551,4 +560,28 @@ float Function GetMaxMagickaActorValue(Actor starget)
 	endIf
 	
 	return maxVal
-EndFunction
+endFunction
+
+;
+; v2.26 moved into this function for multiple uses
+;
+Function ShowPreferenceMessage()					
+	int prefVal = DTWW_Enabled.GetValueInt()
+	
+	if (prefVal >= 2)
+		; v2.25 - growl may be installed with scaling on or off
+		if (prefVal == 2)
+			if (GrowlModInstalled)
+				; scaling on
+				DTWW_EnableMeterUneqMessage.Show(1)
+			else
+				DTWW_EnableMeterUneqMessage.Show(0)
+			endIf
+		else
+			; 3+ no scaling
+			DTWW_EnableMeterUneqMessage.Show(2)
+		endIf
+	elseIf (prefVal > 0)
+		DTWW_EnableMeterMessage.Show()
+	endIf
+endFunction
